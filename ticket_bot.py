@@ -90,7 +90,7 @@ ARCHIVE_VIEW_ROLES = [
 ]
 
 OPEN_TICKET_RE = re.compile(r"^🚨・(\d+)[-・](.+)$")
-ARCHIVE_TICKET_RE = re.compile(r"^🗄️・(\d+)$")
+ARCHIVE_TICKET_RE = re.compile(r"^🗄️・(\d+)(?:・(.+))?$")
 USER_MENTION_RE = re.compile(r"<@!?(\d+)>")
 
 _ticket_locks: dict[int, asyncio.Lock] = {}
@@ -102,7 +102,14 @@ def _ticket_lock(guild_id: int) -> asyncio.Lock:
     return _ticket_locks[guild_id]
 
 
-def find_emergency_category(guild: discord.Guild) -> discord.CategoryChannel | None:
+def nick_slug(nick: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_" else "-" for c in nick.lower())[:20]
+
+
+def archive_channel_name(num: int, nick: str) -> str:
+    return f"🗄️・{num}・{nick_slug(nick)}"
+
+
     for cat in guild.categories:
         if "экстрен" in cat.name.lower():
             return cat
@@ -286,6 +293,30 @@ async def migrate_calls_archive(guild: discord.Guild) -> None:
     if moved:
         print(f"  ✓ вызовы: перенесено в архив — {moved}")
 
+    renamed = await fix_legacy_calls_archive_channels(guild)
+    if renamed:
+        print(f"  ✓ вызовы: архив с ником — {renamed}")
+
+
+async def fix_legacy_calls_archive_channels(guild: discord.Guild) -> int:
+    """Старые 🗄️・N → 🗄️・N・ник."""
+    fixed = 0
+    legacy_re = re.compile(r"^🗄️・(\d+)$")
+    for ch in guild.text_channels:
+        if not legacy_re.match(ch.name):
+            continue
+        meta = await read_ticket_meta(ch)
+        if meta is None:
+            continue
+        num, nick, _, _ = meta
+        if nick in ("?", ""):
+            continue
+        new_name = archive_channel_name(num, nick)
+        if ch.name != new_name:
+            await ch.edit(name=new_name, reason="Архив вызовов: добавить ник в название")
+            fixed += 1
+    return fixed
+
 
 async def read_ticket_meta(channel: discord.TextChannel) -> tuple[int, str, str, str | None] | None:
     m = OPEN_TICKET_RE.match(channel.name)
@@ -297,7 +328,7 @@ async def read_ticket_meta(channel: discord.TextChannel) -> tuple[int, str, str,
         if not m2:
             return None
         num = int(m2.group(1))
-        nick = "?"
+        nick = (m2.group(2) or "?").replace("-", " ")
 
     ticket_type, mode = "?", None
     async for msg in channel.history(limit=20, oldest_first=True):
@@ -396,7 +427,7 @@ async def cancel_ticket_channel(
 ) -> None:
     guild = channel.guild
     archive_cat = await ensure_archive_category(guild)
-    archive_name = f"🗄️・{ticket_num}"
+    archive_name = archive_channel_name(ticket_num, nick)
     ows = archive_overwrites(guild)
 
     embed = discord.Embed(color=COLOR_ARCHIVE)
@@ -447,7 +478,7 @@ async def close_ticket_channel(
 ) -> None:
     guild = channel.guild
     archive_cat = await ensure_archive_category(guild)
-    archive_name = f"🗄️・{ticket_num}"
+    archive_name = archive_channel_name(ticket_num, nick)
     ows = archive_overwrites(guild)
 
     mod = moderator or interaction.user
@@ -893,6 +924,7 @@ class DWBot(discord.Client):
     def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.guilds = True
+        intents.members = True
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
@@ -913,8 +945,13 @@ class DWBot(discord.Client):
         guild = self.get_guild(guild_id)
         if guild:
             await guild.fetch_channels()
+            try:
+                await guild.chunk()
+            except discord.HTTPException:
+                pass
             if os.getenv("BOT_LITE_STARTUP") == "1":
                 print("  lite startup: только панели")
+                await migrate_calls_archive(guild)
                 await deploy_panel(guild)
                 await deploy_report_panel(guild)
                 await deploy_salary_panel(guild)

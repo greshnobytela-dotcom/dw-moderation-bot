@@ -108,36 +108,22 @@ def member_matches_query(member: discord.Member, query: str) -> bool:
     for key in member_search_keys(member):
         if key == q or slugify(key) == q_slug:
             return True
+        if q in key or key in q:
+            return True
     return False
 
 
-async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[discord.Member]:
-    query = parse_nick_input(query)
-    if len(query) < 2:
-        return []
-
-    matches: dict[int, discord.Member] = {}
-    for member in guild.members:
-        if is_report_moderator(member) and member_matches_query(member, query):
-            matches[member.id] = member
-    if matches:
-        return list(matches.values())
-
+async def _search_members_api(guild: discord.Guild, query: str) -> list[discord.Member]:
     token = os.getenv("DISCORD_BOT_TOKEN", "").strip()
-    if not token:
+    if not token or len(query) < 2:
         return []
 
-    mod_role_ids = {
-        str(r.id)
-        for r in guild.roles
-        if r.name in REPORT_MOD_ROLES
-    }
     headers = {"Authorization": f"Bot {token}"}
     url = (
         f"https://discord.com/api/v10/guilds/{guild.id}/members/search"
         f"?query={quote(query)}&limit=25"
     )
-
+    found: list[discord.Member] = []
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -147,8 +133,6 @@ async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[disc
     for raw in batch:
         if raw.get("user", {}).get("bot"):
             continue
-        if not set(raw.get("roles", [])) & mod_role_ids:
-            continue
         uid = int(raw["user"]["id"])
         member = guild.get_member(uid)
         if member is None:
@@ -156,6 +140,39 @@ async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[disc
                 member = await guild.fetch_member(uid)
             except discord.HTTPException:
                 continue
+        found.append(member)
+    return found
+
+
+async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[discord.Member]:
+    query = parse_nick_input(query)
+    if len(query) < 2:
+        return []
+
+    matches: dict[int, discord.Member] = {}
+
+    for member in await _search_members_api(guild, query):
+        if is_report_moderator(member) and member_matches_query(member, query):
+            matches[member.id] = member
+    if matches:
+        return list(matches.values())
+
+    for member in guild.members:
+        if is_report_moderator(member) and member_matches_query(member, query):
+            matches[member.id] = member
+    if matches:
+        return list(matches.values())
+
+    mod_role_ids = {
+        str(r.id)
+        for r in guild.roles
+        if r.name in REPORT_MOD_ROLES
+    }
+    for member in await _search_members_api(guild, query):
+        if member.id in matches:
+            continue
+        if not any(str(r.id) in mod_role_ids for r in member.roles):
+            continue
         if member_matches_query(member, query):
             matches[member.id] = member
 
