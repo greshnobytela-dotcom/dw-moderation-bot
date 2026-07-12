@@ -343,17 +343,12 @@ async def migrate_calls_archive(guild: discord.Guild) -> None:
 async def fix_legacy_calls_archive_channels(guild: discord.Guild) -> int:
     """Старые 🗄️・N → 🗄️・N・ник."""
     fixed = 0
-    calls_arch = discord.utils.get(guild.categories, name=CAT_ARCHIVE_CALLS)
     for ch in guild.text_channels:
         if ch.name.startswith("🗄️・зп-"):
             continue
         m = ARCHIVE_TICKET_RE.match(ch.name)
         if not m or m.group(2):
             continue
-        if calls_arch and ch.category_id != calls_arch.id:
-            legacy_cat = discord.utils.get(guild.categories, name=CAT_ARCHIVE_LEGACY)
-            if not legacy_cat or ch.category_id != legacy_cat.id:
-                continue
         meta = await read_ticket_meta(ch)
         if meta is None:
             print(f"  ⚠ архив {ch.name}: мета не прочитана")
