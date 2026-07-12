@@ -377,51 +377,50 @@ async def read_ticket_meta(channel: discord.TextChannel) -> tuple[int, str, str,
         nick = (m2.group(2) or "?").replace("-", " ")
 
     ticket_type, mode = "?", None
-    async for msg in channel.history(limit=20, oldest_first=True):
+    async for msg in channel.history(limit=30, oldest_first=True):
         if not msg.embeds:
             continue
-        emb = msg.embeds[0]
-        title = emb.title or ""
-        if "вызов" not in title.lower() and "архив" not in title.lower():
-            continue
+        for emb in msg.embeds:
+            title = emb.title or ""
+            if "вызов" not in title.lower() and "архив" not in title.lower():
+                continue
 
-        for field in emb.fields:
-            name = field.name
-            val = field_plain(field.value)
-            if "НИК" in name.upper() or name.endswith("Ник"):
-                nick = val
-            elif "ТИП" in name.upper() or name.endswith("Тип"):
-                ticket_type = val
-            elif "РЕЖИМ" in name.upper() or name.endswith("Режим"):
-                mode = val
-            elif "Ник" in name:
-                nick = val
-            elif "Тип" in name:
-                ticket_type = val
-            elif "Режим" in name:
-                mode = val
+            for field in emb.fields:
+                name = field.name
+                val = field_plain(field.value)
+                if "НИК" in name.upper() or name.endswith("Ник"):
+                    nick = val
+                elif "ТИП" in name.upper() or name.endswith("Тип"):
+                    ticket_type = val
+                elif "РЕЖИМ" in name.upper() or name.endswith("Режим"):
+                    mode = val
+                elif "Ник" in name:
+                    nick = val
+                elif "Тип" in name:
+                    ticket_type = val
+                elif "Режим" in name:
+                    mode = val
 
-        if emb.description:
-            for line in emb.description.splitlines():
-                if "Номер:" in line and "·" in line:
-                    nick_m = re.search(r"·\s*\*\*(.+?)\*\*", line)
-                    if nick_m:
-                        nick = nick_m.group(1)
-                if "**Ник:**" in line:
-                    nick = line.split("**Ник:**", 1)[1].strip()
-                elif "**Тип:**" in line:
-                    raw = line.split("**Тип:**", 1)[1].strip()
-                    for t in TICKET_TYPES:
-                        if t in raw:
-                            ticket_type = t
-                            break
-                elif "**Режим:**" in line:
-                    raw = line.split("**Режим:**", 1)[1].strip()
-                    for m in TICKET_MODES:
-                        if m in raw:
-                            mode = m
-                            break
-        break
+            if emb.description:
+                for line in emb.description.splitlines():
+                    if "Номер:" in line and "·" in line:
+                        nick_m = re.search(r"·\s*\*\*(.+?)\*\*", line)
+                        if nick_m:
+                            nick = nick_m.group(1)
+                    if "**Ник:**" in line:
+                        nick = line.split("**Ник:**", 1)[1].strip()
+                    elif "**Тип:**" in line:
+                        raw = line.split("**Тип:**", 1)[1].strip()
+                        for t in TICKET_TYPES:
+                            if t in raw:
+                                ticket_type = t
+                                break
+                    elif "**Режим:**" in line:
+                        raw = line.split("**Режим:**", 1)[1].strip()
+                        for m in TICKET_MODES:
+                            if m in raw:
+                                mode = m
+                                break
     return num, nick, ticket_type, mode
 
 
@@ -477,6 +476,7 @@ async def cancel_ticket_channel(
     embed = discord.Embed(color=COLOR_ARCHIVE)
     embed.title = f"📦  АРХИВ  #{ticket_num}"
     embed.description = (
+        f"**На кого вызов:** `{nick}`\n"
         f"Отменён: {interaction.user.mention}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
@@ -532,11 +532,13 @@ async def close_ticket_channel(
     embed.title = f"📦  АРХИВ  #{ticket_num}"
     if mod.id == who.id:
         embed.description = (
+            f"**На кого вызов:** `{nick}`\n"
             f"Закрыл: {mod.mention}\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
     else:
         embed.description = (
+            f"**На кого вызов:** `{nick}`\n"
             f"Модератор: {mod.mention}\n"
             f"Подтвердил: {who.mention}\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
