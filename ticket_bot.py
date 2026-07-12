@@ -984,7 +984,6 @@ class DWBot(discord.Client):
     def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.guilds = True
-        intents.members = True
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
@@ -1005,10 +1004,6 @@ class DWBot(discord.Client):
         guild = self.get_guild(guild_id)
         if guild:
             await guild.fetch_channels()
-            try:
-                await guild.chunk()
-            except discord.HTTPException:
-                pass
             if os.getenv("BOT_LITE_STARTUP") == "1":
                 print("  lite startup: только панели")
                 await migrate_calls_archive(guild)
