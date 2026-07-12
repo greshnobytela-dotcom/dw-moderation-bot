@@ -33,8 +33,28 @@ jobs:
           DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
           BOT_LITE_STARTUP: "1"
         run: |
-          python3 -u main.py &
+          set -euo pipefail
+          python3 -u main.py > bot.log 2>&1 &
           BOT_PID=$!
+          echo "bot pid=$BOT_PID"
+          for i in $(seq 1 45); do
+            if grep -q "Бот запущен" bot.log 2>/dev/null; then
+              echo "✓ bot online"
+              head -20 bot.log
+              break
+            fi
+            if ! kill -0 "$BOT_PID" 2>/dev/null; then
+              echo "✗ bot died on startup"
+              cat bot.log
+              exit 1
+            fi
+            sleep 2
+          done
+          if ! grep -q "Бот запущен" bot.log 2>/dev/null; then
+            echo "✗ bot failed to connect in time"
+            cat bot.log
+            exit 1
+          fi
           sleep 21000
           kill "$BOT_PID" 2>/dev/null || true
           wait "$BOT_PID" 2>/dev/null || true

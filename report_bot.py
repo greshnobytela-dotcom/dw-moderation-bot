@@ -583,6 +583,7 @@ class ReportPanelView(discord.ui.View):
         if not await self._deny_unless_admin(interaction):
             return
         if interaction.guild is None:
+            await interaction.response.send_message("Только на сервере.", ephemeral=True)
             return
         await interaction.response.send_modal(ReportNickModal("create"))
 
@@ -600,6 +601,7 @@ class ReportPanelView(discord.ui.View):
         if not await self._deny_unless_admin(interaction):
             return
         if interaction.guild is None:
+            await interaction.response.send_message("Только на сервере.", ephemeral=True)
             return
         await interaction.response.send_modal(ReportNickModal("delete"))
 
@@ -618,6 +620,7 @@ class ReportPanelView(discord.ui.View):
         if not await self._deny_unless_admin(interaction):
             return
         if interaction.guild is None:
+            await interaction.response.send_message("Только на сервере.", ephemeral=True)
             return
         await interaction.response.send_modal(ReportNickModal("refresh"))
 
