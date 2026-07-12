@@ -92,6 +92,10 @@ ARCHIVE_VIEW_ROLES = [
 OPEN_TICKET_RE = re.compile(r"^🚨・(\d+)[-・](.+)$")
 ARCHIVE_TICKET_RE = re.compile(r"^🗄️・(\d+)(?:・(.+))?$")
 USER_MENTION_RE = re.compile(r"<@!?(\d+)>")
+TICKET_TOPIC_RE = re.compile(
+    r"num:(?P<num>\d+)\|nick:(?P<nick>[^|]+)\|type:(?P<type>[^|]+)"
+    r"(?:\|mode:(?P<mode>[^|]+))?\|creator:(?P<creator>\d+)"
+)
 
 _ticket_locks: dict[int, asyncio.Lock] = {}
 
@@ -147,8 +151,41 @@ async def reserve_ticket_id(guild: discord.Guild) -> int:
 
 
 def open_channel_name(num: int, nick: str) -> str:
-    safe = "".join(c if c.isalnum() or c in "-_" else "-" for c in nick)[:20]
-    return f"🚨・{num}・{safe}"
+    return f"🚨・{num}・{nick_slug(nick)}"
+
+
+def ticket_topic(
+    num: int,
+    nick: str,
+    ticket_type: str,
+    creator_id: int,
+    mode: str | None = None,
+) -> str:
+    mode_part = f"|mode:{mode}" if mode else ""
+    return f"num:{num}|nick:{nick}|type:{ticket_type}{mode_part}|creator:{creator_id}"
+
+
+def parse_ticket_topic(topic: str | None) -> tuple[int, str, str, str | None] | None:
+    if not topic:
+        return None
+    m = TICKET_TOPIC_RE.match(topic.strip())
+    if not m:
+        return None
+    return (
+        int(m.group("num")),
+        m.group("nick"),
+        m.group("type"),
+        m.group("mode"),
+    )
+
+
+def field_plain(value: str) -> str:
+    text = value.strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            return parts[1].strip()
+    return text.strip("`").strip()
 
 
 def is_staff(member: discord.Member) -> bool:
@@ -204,10 +241,15 @@ def build_ticket_embed(
     embed.title = "🚨  ЭКСТРЕННЫЙ ВЫЗОВ"
     embed.description = (
         f"{PING_EVERYONE}\n"
-        f"Номер: `#{num}`  ·  **{nick}**\n"
+        f"Номер: `#{num}`\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
+    embed.add_field(
+        name="👤  НИК",
+        value=f"```\n{nick}\n```",
+        inline=True,
+    )
     embed.add_field(
         name=f"{TYPE_EMOJI.get(ticket_type, '📋')}  ТИП",
         value=f"```\n{ticket_type}\n```",
@@ -319,6 +361,10 @@ async def fix_legacy_calls_archive_channels(guild: discord.Guild) -> int:
 
 
 async def read_ticket_meta(channel: discord.TextChannel) -> tuple[int, str, str, str | None] | None:
+    from_topic = parse_ticket_topic(channel.topic)
+    if from_topic is not None:
+        return from_topic
+
     m = OPEN_TICKET_RE.match(channel.name)
     if m:
         num = int(m.group(1))
@@ -341,9 +387,7 @@ async def read_ticket_meta(channel: discord.TextChannel) -> tuple[int, str, str,
 
         for field in emb.fields:
             name = field.name
-            val = field.value.strip("*").strip("`").strip()
-            if val.startswith("\n"):
-                val = val.strip()
+            val = field_plain(field.value)
             if "НИК" in name.upper() or name.endswith("Ник"):
                 nick = val
             elif "ТИП" in name.upper() or name.endswith("Тип"):
@@ -459,11 +503,12 @@ async def cancel_ticket_channel(
             name=archive_name,
             category=archive_cat,
             overwrites=ows,
+            topic=ticket_topic(ticket_num, nick, ticket_type, interaction.user.id, mode),
             reason=f"Cancel ticket {ticket_num}",
         )
         await disable_ticket_controls(channel)
-    except discord.HTTPException:
-        pass
+    except discord.HTTPException as exc:
+        print(f"  ⚠ архив вызова #{ticket_num}: {exc}")
 
 
 async def close_ticket_channel(
@@ -514,16 +559,18 @@ async def close_ticket_channel(
         )
 
     await channel.send(embed=embed)
+    creator_id = creator.id if creator else interaction.user.id
     try:
         await channel.edit(
             name=archive_name,
             category=archive_cat,
             overwrites=ows,
+            topic=ticket_topic(ticket_num, nick, ticket_type, creator_id, mode),
             reason=f"Archive ticket {ticket_num}",
         )
         await disable_ticket_controls(channel)
-    except discord.HTTPException:
-        pass
+    except discord.HTTPException as exc:
+        print(f"  ⚠ архив вызова #{ticket_num}: {exc}")
 
 
 class TypeSelect(discord.ui.Select):
@@ -660,6 +707,7 @@ class NickModal(discord.ui.Modal, title="👤  Введи ник"):
             channel_name,
             category=em_cat,
             overwrites=overwrites,
+            topic=ticket_topic(num, nick_str, self.ticket_type, interaction.user.id, self.mode),
             reason=f"Emergency #{num}",
         )
 
