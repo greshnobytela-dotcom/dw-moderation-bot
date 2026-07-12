@@ -96,6 +96,9 @@ def member_search_keys(member: discord.Member) -> list[str]:
 
 
 def parse_nick_input(content: str) -> str:
+    mention = re.search(r"<@!?(\d+)>", content)
+    if mention:
+        return f"uid:{mention.group(1)}"
     text = re.sub(r"<@!?\d+>", "", content).strip()
     if text.startswith("@"):
         text = text[1:].strip()
@@ -144,12 +147,73 @@ async def _search_members_api(guild: discord.Guild, query: str) -> list[discord.
     return found
 
 
+def moderator_from_report_channel(channel: discord.TextChannel) -> discord.Member | None:
+    for target, ow in channel.overwrites.items():
+        if isinstance(target, discord.Member) and not target.bot and ow.send_messages is True:
+            return target
+    return None
+
+
+async def find_moderators_by_report_channels(
+    guild: discord.Guild,
+    query: str,
+) -> list[discord.Member]:
+    q = query.lower().strip()
+    q_slug = slugify(query)
+    found: dict[int, discord.Member] = {}
+
+    for ch in list_personal_report_channels(guild):
+        m = REPORT_CHANNEL_RE.match(ch.name)
+        if not m:
+            continue
+        ch_nick = m.group(1).lower()
+        ch_slug = slugify(m.group(1))
+        if q_slug != ch_slug and q != ch_nick and q not in ch_nick and ch_nick not in q:
+            continue
+        mod = moderator_from_report_channel(ch)
+        if mod is not None:
+            found[mod.id] = mod
+
+    direct = find_report_channel(guild, q_slug)
+    if direct is not None:
+        mod = moderator_from_report_channel(direct)
+        if mod is not None:
+            found[mod.id] = mod
+
+    return list(found.values())
+
+
+async def find_moderators_in_voice(
+    guild: discord.Guild,
+    query: str,
+) -> list[discord.Member]:
+    found: dict[int, discord.Member] = {}
+    for vc in guild.voice_channels + guild.stage_channels:
+        for member in vc.members:
+            if is_report_moderator(member) and member_matches_query(member, query):
+                found[member.id] = member
+    return list(found.values())
+
+
 async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[discord.Member]:
     query = parse_nick_input(query)
+    if query.startswith("uid:"):
+        uid = int(query[4:])
+        try:
+            member = await guild.fetch_member(uid)
+            return [member]
+        except discord.HTTPException:
+            return []
+
     if len(query) < 2:
         return []
 
     matches: dict[int, discord.Member] = {}
+
+    for member in await find_moderators_by_report_channels(guild, query):
+        matches[member.id] = member
+    if matches:
+        return list(matches.values())
 
     for member in await _search_members_api(guild, query):
         if is_report_moderator(member) and member_matches_query(member, query):
@@ -163,15 +227,10 @@ async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[disc
     if matches:
         return list(matches.values())
 
-    mod_role_ids = {
-        str(r.id)
-        for r in guild.roles
-        if r.name in REPORT_MOD_ROLES
-    }
     for member in await _search_members_api(guild, query):
         if member.id in matches:
             continue
-        if not any(str(r.id) in mod_role_ids for r in member.roles):
+        if not is_report_moderator(member):
             continue
         if member_matches_query(member, query):
             matches[member.id] = member
@@ -452,7 +511,7 @@ class ReportNickModal(discord.ui.Modal):
         self.action = action
         self.nick_input = discord.ui.TextInput(
             label="Ник модератора (без @)",
-            placeholder="Введите никнейм",
+            placeholder="chocka1 или @упоминание",
             required=True,
             max_length=32,
         )
