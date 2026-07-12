@@ -914,7 +914,10 @@ class DWBot(discord.Client):
         if guild:
             await guild.fetch_channels()
             if os.getenv("BOT_LITE_STARTUP") == "1":
-                print("  lite startup: пропуск оформления и панелей")
+                print("  lite startup: только панели")
+                await deploy_panel(guild)
+                await deploy_report_panel(guild)
+                await deploy_salary_panel(guild)
                 return
             await apply_server_styling(guild)
             await sync_ticket_counter(guild)
