@@ -1,0 +1,268 @@
+# Конфиг ролей и прав Discord-сервера
+# Стиль оформления: как DuckWorld / HIMORY
+#   категории: [эмодзи] Название
+#   каналы:    эмодзи-название
+# Запуск: python apply_config.py  (сначала автоматически делает backup)
+
+server:
+  role_order:
+    - "⭐ Звезда"
+    - "🏛 Руководство"
+    - "👑 Высшая администрация"
+    - "🛡 Администрация"
+    - "🏛 Депутат"
+    - "📢 Госдума"
+    - "👤 Участник"
+
+roles:
+  "⭐ Звезда":
+    color: "#FFD700"
+    hoist: true
+    mentionable: true
+    permissions:
+      view_channel: true
+      manage_channels: true
+      manage_roles: true
+      manage_messages: true
+      connect: true
+      speak: true
+      move_members: true
+      mute_members: true
+      deafen_members: true
+
+  "🏛 Руководство":
+    color: "#9B59B6"
+    hoist: true
+    mentionable: false
+    permissions:
+      view_channel: true
+      manage_messages: true
+      connect: true
+      speak: true
+      move_members: true
+
+  "👑 Высшая администрация":
+    color: "#E74C3C"
+    hoist: true
+    mentionable: false
+    permissions:
+      view_channel: true
+      manage_channels: true
+      manage_messages: true
+      connect: true
+      speak: true
+
+  "🛡 Администрация":
+    color: "#3498DB"
+    hoist: true
+    mentionable: false
+    permissions:
+      view_channel: true
+      read_message_history: true
+      connect: true
+      speak: true
+
+  "🏛 Депутат":
+    color: "#2ECC71"
+    hoist: true
+    mentionable: false
+    permissions:
+      view_channel: true
+      send_messages: true
+      connect: true
+      speak: true
+
+  "📢 Госдума":
+    color: "#1ABC9C"
+    hoist: false
+    mentionable: false
+    permissions:
+      view_channel: true
+      send_messages: true
+      connect: true
+      speak: true
+
+  "👤 Участник":
+    color: "#95A5A6"
+    hoist: false
+    mentionable: false
+    permissions:
+      view_channel: true
+      send_messages: true
+      connect: true
+      speak: true
+
+categories:
+  # ── Общие разделы (как на DuckWorld) ──────────────────────────
+  - name: "[👋] Приветствие"
+    channels:
+      - name: "✨-новенькие"
+        type: text
+    access:
+      "@everyone": full
+      "🛡 Администрация": full
+
+  - name: "[📖] Информация"
+    channels:
+      - name: "📑-важное"
+        type: text
+      - name: "📖-правила"
+        type: text
+      - name: "📢-новости"
+        type: text
+    access:
+      "@everyone": view
+      "🛡 Администрация": full
+
+  - name: "[💬] Чаты"
+    channels:
+      - name: "💬-общий-чат"
+        type: text
+      - name: "🎭-оффтоп"
+        type: text
+      - name: "❓-вопросы"
+        type: text
+      - name: "🤖-бот-чат"
+        type: text
+    access:
+      "@everyone": full
+      "🛡 Администрация": full
+
+  # ── Голосовые (публичные) ─────────────────────────────────────
+  - name: "[🔊] Голосовые"
+    channels:
+      - name: "🎙️-войс-1"
+        type: voice
+      - name: "🎙️-войс-2"
+        type: voice
+      - name: "🔒-1x1"
+        type: voice
+    access:
+      "@everyone": voice_full
+      "🛡 Администрация": full
+
+  # ── Администрация (только просмотр для обычной админки) ──────
+  - name: "[👑] Администрация"
+    channels:
+      - name: "💬-чат"
+        type: text
+      - name: "⚡-модерация"
+        type: voice
+    access:
+      "🛡 Администрация": full
+      "👑 Высшая администрация": full
+      "⭐ Звезда": view
+      "🏛 Руководство": view
+      "@everyone": deny
+
+  # ── Госдума ───────────────────────────────────────────────────
+  - name: "[🏛] Госдума"
+    channels:
+      - name: "📜-заседание"
+        type: text
+      - name: "🎙️-заседание"
+        type: voice
+      - name: "🔒-приват"
+        type: voice
+    access:
+      "📢 Госдума": full
+      "🏛 Депутат": full
+      "⭐ Звезда": full
+      "🏛 Руководство": full
+      "🛡 Администрация": view
+      "@everyone": deny
+    channel_overrides:
+      "🔒-приват":
+        "🏛 Депутат": voice_full
+        "⭐ Звезда": voice_full
+        "🏛 Руководство": voice_full
+        "🛡 Администрация": view
+        "@everyone": deny
+
+  # ── Оперативный штаб (только руководство + звезда) ───────────
+  - name: "[🎯] Оперативный штаб"
+    channels:
+      - name: "📋-штаб-чат"
+        type: text
+      - name: "🎙️-штаб-голос"
+        type: voice
+    access:
+      "⭐ Звезда": full
+      "🏛 Руководство": full
+      "🛡 Администрация": view
+      "@everyone": deny
+
+  # ── Отчёты (высшая админка может создавать/удалять) ───────────
+  - name: "[📋] Отчёты"
+    channels:
+      - name: "📝-отчёты"
+        type: text
+    access:
+      "👑 Высшая администрация": manage
+      "🛡 Администрация": view
+      "⭐ Звезда": view
+      "🏛 Руководство": view
+      "@everyone": deny
+
+  # ── «Свой сервер» для каждой роли ────────────────────────────
+  - name: "[⭐] Звезда"
+    channels:
+      - name: "💬-общий"
+        type: text
+      - name: "🎙️-голос"
+        type: voice
+    access:
+      "⭐ Звезда": full
+      "🏛 Руководство": view
+      "🛡 Администрация": view
+      "@everyone": deny
+
+  - name: "[🏛] Руководство"
+    channels:
+      - name: "💬-чат"
+        type: text
+      - name: "🎙️-голос"
+        type: voice
+    access:
+      "🏛 Руководство": full
+      "⭐ Звезда": full
+      "🛡 Администрация": view
+      "@everyone": deny
+
+permission_presets:
+  full:
+    view_channel: true
+    send_messages: true
+    read_message_history: true
+    connect: true
+    speak: true
+    stream: true
+    use_voice_activation: true
+    manage_channels: true
+    manage_messages: true
+
+  view:
+    view_channel: true
+    read_message_history: true
+    connect: true
+    speak: true
+
+  voice_full:
+    view_channel: true
+    connect: true
+    speak: true
+    stream: true
+    use_voice_activation: true
+
+  manage:
+    view_channel: true
+    send_messages: true
+    read_message_history: true
+    manage_channels: true
+    manage_messages: true
+    connect: true
+    speak: true
+
+  deny:
+    view_channel: false
+    connect: false

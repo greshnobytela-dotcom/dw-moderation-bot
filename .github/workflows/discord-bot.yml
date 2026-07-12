@@ -1,0 +1,46 @@
+name: Discord bot 24/7 (free)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: dw-moderation-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bot (~5h50m, then restart)
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          BOT_LITE_STARTUP: "1"
+        run: |
+          python3 -u main.py &
+          BOT_PID=$!
+          sleep 21000
+          kill "$BOT_PID" 2>/dev/null || true
+          wait "$BOT_PID" 2>/dev/null || true
+
+      - name: Chain next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "discord-bot.yml" --ref "${{ github.ref_name }}"

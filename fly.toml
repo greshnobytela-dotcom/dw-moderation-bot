@@ -1,0 +1,25 @@
+# Смени имя, если занято: fly apps create НОВОЕ_ИМЯ
+app = "dw-moderation-bot"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DISCORD_GUILD_ID = "1500480346540474490"
+
+[mounts]
+  source = "bot_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  count = 1
+
+[deploy]
+  strategy = "immediate"
+  wait_timeout = "5m"
+
+[processes]
+  app = "python -u ticket_bot.py"

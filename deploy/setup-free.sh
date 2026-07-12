@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Бесплатный 24/7 хостинг бота (без Fly.io trial).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${ROOT}"
+
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║  Бесплатный 24/7 — выбери способ                             ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "Fly.io БЕЗ карты = машина умирает каждые 5 мин. Не подходит."
+echo ""
+echo "═══ Вариант 1 (рекомендую): GitHub Actions ═══"
+echo "  • Публичный репо = бесплатно и безлимит"
+echo "  • Бот перезапускается сам каждые ~6 часов (~30 сек простоя)"
+echo ""
+echo "  1. Создай пустой репо на github.com (Public)"
+echo "  2. Settings → Secrets → Actions:"
+echo "       DISCORD_BOT_TOKEN = токен бота"
+echo "       DISCORD_GUILD_ID  = 1500480346540474490"
+echo "  3. Залей код:"
+echo "       git init && git add . && git commit -m 'bot'"
+echo "       git remote add origin https://github.com/USER/REPO.git"
+echo "       git push -u origin main"
+echo "  4. Actions → Discord bot 24/7 → Run workflow"
+echo ""
+echo "═══ Вариант 2: Oracle Cloud Always Free (навсегда VPS) ═══"
+echo "  • 2 CPU, 12 GB RAM, 24/7, карта только для верификации"
+echo "  • cloud.oracle.com → Ubuntu ARM → VM.Standard.A1.Flex"
+echo "  • Потом с ПК:"
+echo "       ./deploy/upload-to-vps.sh ubuntu@IP"
+echo "       ssh ubuntu@IP 'sudo bash /opt/discord-server-manager/deploy/install-vps.sh'"
+echo ""
+echo "═══ Вариант 3: Fly + cron-job.org (без карты, ~90% аптайм) ═══"
+echo "  • Машина гасится каждые 5 мин, cron будит её обратно"
+echo "  1. fly tokens create deploy -a dw-moderation-bot  (скопируй токен)"
+echo "  2. https://cron-job.org → Create cronjob:"
+echo "       URL: https://api.machines.dev/v1/apps/dw-moderation-bot/machines/825999b726e9d8/start"
+echo "       Method: POST"
+echo "       Header: Authorization = <токен из шага 1>"
+echo "       Every: 3 minutes"
+echo ""
+if command -v flyctl &>/dev/null || [[ -x "${HOME}/.fly/bin/flyctl" ]]; then
+  export PATH="${HOME}/.fly/bin:${PATH}"
+  flyctl machine stop 825999b726e9d8 -a dw-moderation-bot 2>/dev/null || true
+  echo "  Fly машина остановлена."
+fi
+pkill -f 'python3 -u ticket_bot.py' 2>/dev/null || true
+echo "  Локальный бот остановлен."
+echo ""
+echo "Готово. Выбери вариант 1 или 2 выше."

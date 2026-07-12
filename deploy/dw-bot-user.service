@@ -1,0 +1,15 @@
+[Unit]
+Description=DW Moderation Discord Bot (local 24/7)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/discord-server-manager
+EnvironmentFile=%h/Projects/discord-server-manager/.env
+ExecStart=/usr/bin/python3 -u ticket_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

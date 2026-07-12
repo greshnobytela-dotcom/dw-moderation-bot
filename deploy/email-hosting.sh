@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Бесплатный хостинг через почту — без Oracle, без карты.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${ROOT}"
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║  Бесплатный хостинг — регистрация по почте                   ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "Oracle / Fly — забудь. Вот что реально работает:"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ВАРИАНТ A — MonkeyBytes (проще всего, 24/7)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "  1. Регистрация: https://dash.monkey-network.xyz"
+echo "     (почта + пароль, карта НЕ нужна)"
+echo ""
+echo "  2. Create Server → Python 3.12"
+echo ""
+echo "  3. Собери ZIP:"
+echo "       ./deploy/package-hosting.sh"
+echo ""
+echo "  4. Залей dw-bot-hosting.zip через File Manager или SFTP"
+echo ""
+echo "  5. Variables (Environment):"
+echo "       DISCORD_BOT_TOKEN = токен бота"
+echo "       DISCORD_GUILD_ID  = 1500480346540474490"
+echo ""
+echo "  6. Startup command:"
+echo "       pip install -r requirements.txt && python3 -u main.py"
+echo ""
+echo "  7. Start → смотри Console"
+echo ""
+echo "  Бесплатно: 2 GB RAM, 24/7, без карты"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  ВАРИАНТ B — GitHub (твоя почта → github.com)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "  1. github.com → Sign up (твоя почта)"
+echo "  2. New repository → Public → dw-moderation-bot"
+echo "  3. Upload files или push код"
+echo "  4. Settings → Secrets:"
+echo "       DISCORD_BOT_TOKEN"
+echo "       DISCORD_GUILD_ID = 1500480346540474490"
+echo "  5. Actions → Discord bot 24/7 → Run workflow"
+echo ""
+echo "  Бесплатно, рестарт раз в ~6 часов (~30 сек простоя)"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Остановить Fly/локальный бот
+export PATH="${HOME}/.fly/bin:${PATH}"
+flyctl machine stop 825999b726e9d8 -a dw-moderation-bot 2>/dev/null || true
+pkill -f 'python3 -u ticket_bot.py' 2>/dev/null || true
+pkill -f 'python3 -u main.py' 2>/dev/null || true
+
+bash "${ROOT}/deploy/package-hosting.sh"

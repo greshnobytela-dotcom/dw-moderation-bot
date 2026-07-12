@@ -1,0 +1,17 @@
+.env
+.venv
+__pycache__
+*.pyc
+backups/
+.git
+*.md
+config/
+*.sh
+setup_*.py
+apply_*.py
+backup.py
+restore.py
+rename_channels.py
+fix_*.py
+restore_*.py
+reset_*.py

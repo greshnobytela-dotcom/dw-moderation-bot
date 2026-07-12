@@ -1,0 +1,28 @@
+# Поддерживает бота на Fly trial (машина гасится каждые 5 мин без карты).
+# Нужен секрет FLY_API_TOKEN в настройках репозитория GitHub.
+name: Fly bot keepalive
+
+on:
+  schedule:
+    - cron: "*/3 * * * *"
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Start machine if stopped
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl machine list -a dw-moderation-bot --json | python3 - <<'PY'
+          import json, os, subprocess, sys
+          data = json.load(sys.stdin)
+          for m in data:
+              if m.get("state") != "started":
+                  subprocess.run(
+                      ["flyctl", "machine", "start", m["id"], "-a", "dw-moderation-bot"],
+                      check=False,
+                  )
+          PY
