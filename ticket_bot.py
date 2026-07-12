@@ -343,19 +343,29 @@ async def migrate_calls_archive(guild: discord.Guild) -> None:
 async def fix_legacy_calls_archive_channels(guild: discord.Guild) -> int:
     """Старые 🗄️・N → 🗄️・N・ник."""
     fixed = 0
-    legacy_re = re.compile(r"^🗄️・(\d+)$")
+    calls_arch = discord.utils.get(guild.categories, name=CAT_ARCHIVE_CALLS)
     for ch in guild.text_channels:
-        if not legacy_re.match(ch.name):
+        if ch.name.startswith("🗄️・зп-"):
             continue
+        m = ARCHIVE_TICKET_RE.match(ch.name)
+        if not m or m.group(2):
+            continue
+        if calls_arch and ch.category_id != calls_arch.id:
+            legacy_cat = discord.utils.get(guild.categories, name=CAT_ARCHIVE_LEGACY)
+            if not legacy_cat or ch.category_id != legacy_cat.id:
+                continue
         meta = await read_ticket_meta(ch)
         if meta is None:
+            print(f"  ⚠ архив {ch.name}: мета не прочитана")
             continue
         num, nick, _, _ = meta
         if nick in ("?", ""):
+            print(f"  ⚠ архив {ch.name}: ник пустой")
             continue
         new_name = archive_channel_name(num, nick)
         if ch.name != new_name:
             await ch.edit(name=new_name, reason="Архив вызовов: добавить ник в название")
+            print(f"  ✓ {ch.name} → {new_name}")
             fixed += 1
     return fixed
 

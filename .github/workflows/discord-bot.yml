@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: dw-moderation-bot
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   bot:
