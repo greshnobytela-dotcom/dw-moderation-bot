@@ -114,6 +114,7 @@ def archive_channel_name(num: int, nick: str) -> str:
     return f"🗄️・{num}・{nick_slug(nick)}"
 
 
+def find_emergency_category(guild: discord.Guild) -> discord.CategoryChannel | None:
     for cat in guild.categories:
         if "экстрен" in cat.name.lower():
             return cat
@@ -671,67 +672,74 @@ class NickModal(discord.ui.Modal, title="👤  Введи ник"):
         if guild is None:
             return
 
-        em_cat = find_emergency_category(guild)
-        if em_cat is None:
-            await interaction.followup.send(
-                "Категория экстренной связи не найдена.",
-                ephemeral=True,
-            )
-            return
+        try:
+            em_cat = find_emergency_category(guild)
+            if em_cat is None:
+                await interaction.followup.send(
+                    "Категория экстренной связи не найдена.",
+                    ephemeral=True,
+                )
+                return
 
-        num = await reserve_ticket_id(guild)
-        nick_str = str(self.nick.value)
-        channel_name = open_channel_name(num, nick_str)
+            num = await reserve_ticket_id(guild)
+            nick_str = str(self.nick.value)
+            channel_name = open_channel_name(num, nick_str)
 
-        overwrites: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            interaction.user: discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-                attach_files=True,
-            ),
-        }
-        for role in guild.roles:
-            if role.name in STAFF_ROLE_NAMES:
-                overwrites[role] = discord.PermissionOverwrite(
+            overwrites: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                interaction.user: discord.PermissionOverwrite(
+                    view_channel=True,
+                    send_messages=True,
+                    read_message_history=True,
+                    attach_files=True,
+                ),
+            }
+            for role in guild.roles:
+                if role.name in STAFF_ROLE_NAMES:
+                    overwrites[role] = discord.PermissionOverwrite(
+                        view_channel=True,
+                        send_messages=True,
+                        read_message_history=True,
+                        manage_messages=True,
+                    )
+            me = guild.me
+            if me:
+                overwrites[me] = discord.PermissionOverwrite(
                     view_channel=True,
                     send_messages=True,
                     read_message_history=True,
                     manage_messages=True,
+                    mention_everyone=True,
                 )
-        me = guild.me
-        if me:
-            overwrites[me] = discord.PermissionOverwrite(
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-                manage_messages=True,
-                mention_everyone=True,
+
+            channel = await guild.create_text_channel(
+                channel_name,
+                category=em_cat,
+                overwrites=overwrites,
+                topic=ticket_topic(num, nick_str, self.ticket_type, interaction.user.id, self.mode),
+                reason=f"Emergency #{num}",
             )
 
-        channel = await guild.create_text_channel(
-            channel_name,
-            category=em_cat,
-            overwrites=overwrites,
-            topic=ticket_topic(num, nick_str, self.ticket_type, interaction.user.id, self.mode),
-            reason=f"Emergency #{num}",
-        )
+            embed = build_ticket_embed(
+                num, nick_str, self.ticket_type, interaction.user, self.mode
+            )
 
-        embed = build_ticket_embed(
-            num, nick_str, self.ticket_type, interaction.user, self.mode
-        )
-
-        await channel.send(
-            embed=embed,
-            view=TicketControlView(),
-            allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=False),
-        )
-        done = discord.Embed(
-            description=f"✅ Вызов создан: {channel.mention}",
-            color=COLOR_SUCCESS,
-        )
-        await interaction.followup.send(embed=done, ephemeral=True)
+            await channel.send(
+                embed=embed,
+                view=TicketControlView(),
+                allowed_mentions=discord.AllowedMentions(everyone=True, users=True, roles=False),
+            )
+            done = discord.Embed(
+                description=f"✅ Вызов создан: {channel.mention}",
+                color=COLOR_SUCCESS,
+            )
+            await interaction.followup.send(embed=done, ephemeral=True)
+        except Exception as exc:
+            print(f"  ✗ создание вызова: {exc}")
+            await interaction.followup.send(
+                f"⚠️ Не удалось создать вызов: {exc}",
+                ephemeral=True,
+            )
 
 
 class EmergencyPanelView(discord.ui.View):
