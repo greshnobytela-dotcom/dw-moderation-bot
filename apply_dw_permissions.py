@@ -147,6 +147,20 @@ _CHANNEL_ADMIN = {
     "@everyone": "deny",
 }
 
+# Новости / объявления — пишет только админка и выше, модеры только читают
+_CHANNEL_NEWS = {
+    R_STAR: "full",
+    R_LEAD: "full",
+    R_HIGH_ADMIN: "full",
+    R_ADMIN: "full",
+    R_HIGH_MOD: "view_no_manage",
+    R_SS: "view_no_manage",
+    R_MOD_PLUS: "view_no_manage",
+    R_MOD: "view_no_manage",
+    R_PASS: "view",
+    "@everyone": "view",
+}
+
 CHANNEL_RULES: dict[str, dict[str, str]] = {
     "🍷 • алкоголики": {
         **_LEAD_ACCESS,
@@ -159,8 +173,7 @@ CHANNEL_RULES: dict[str, dict[str, str]] = {
     "🔰 • госдума": {**_LEAD_ACCESS, R_DEPUTY: "voice_staff", "@everyone": "deny"},
     "〈🧧〉-администрация": _CHANNEL_ADMIN,
     "〈🧧〉・администрация": _CHANNEL_ADMIN,
-    "〈🧧〉-администрация": _CHANNEL_ADMIN,
-    # legacy
+    "🍷・алкоголики": {
         **_LEAD_ACCESS,
         R_HIGH_ADMIN: "voice_staff",
         R_ADMIN: "voice_staff",
@@ -190,7 +203,20 @@ CHANNEL_RULES: dict[str, dict[str, str]] = {
         R_MOD: "report_view",
         "@everyone": "deny",
     },
+    "〈🗞️〉・новости": _CHANNEL_NEWS,
+    "🗞️・новости": _CHANNEL_NEWS,
+    "📰・новости": _CHANNEL_NEWS,
+    "🗯️・новости": _CHANNEL_NEWS,
+    "📢-новости": _CHANNEL_NEWS,
+    "📢・новости": _CHANNEL_NEWS,
 }
+
+ANNOUNCEMENT_CHANNEL_KEYS = {"новости"}
+
+
+def is_announcement_channel(name: str) -> bool:
+    low = name.lower()
+    return any(key in low for key in ANNOUNCEMENT_CHANNEL_KEYS)
 
 REPORT_CATEGORY = "[ 📋 ] Отчёты"
 REPORT_VIEWERS = [R_ADMIN, R_HIGH_ADMIN, R_HIGH_MOD, R_SS, R_REPORTS, R_LEAD, R_STAR]
@@ -396,10 +422,21 @@ async def run(guild: discord.Guild) -> None:
 
     applied += await apply_reports(guild, roles)
 
+    print("\n=== Новости (без записи для модеров) ===")
+    for ch in guild.channels:
+        if not isinstance(ch, discord.TextChannel):
+            continue
+        if not is_announcement_channel(ch.name):
+            continue
+        rules = dict(_CHANNEL_NEWS)
+        await apply_rules(ch, rules, roles, keep_members=False)
+        applied += 1
+        await asyncio.sleep(0.35)
+
     print("\n=== Доступ персонала ко всем чатам ===")
     skip_names = set(CHANNEL_RULES.keys())
     for ch in guild.channels:
-        if ch.name in skip_names:
+        if ch.name in skip_names or is_announcement_channel(ch.name):
             continue
         if ch.type == discord.ChannelType.category and ch.name in SKIP_CATEGORIES | {LOCKED_VOICE_CATEGORY}:
             continue

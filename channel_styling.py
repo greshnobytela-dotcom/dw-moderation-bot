@@ -69,6 +69,7 @@ DYNAMIC_SKIP = re.compile(
 # slug → (emoji, category | None, voice_number | None)
 TEXT_TARGETS: dict[str, tuple[str, str | None]] = {
     "кто-есть-кто": ("💎", "[ 📚 ] Основное"),
+    "новости": ("🗞️", "[ 📚 ] Основное"),
     "информация": ("🆕", "[ 📚 ] Основное"),
     "уход-и-приход": ("🕛", "[ 📚 ] Основное"),
     "общий": ("🛡️", "[ 💬 ] Чаты"),
