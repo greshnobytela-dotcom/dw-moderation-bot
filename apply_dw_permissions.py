@@ -118,6 +118,36 @@ R_DEPUTY = "•  Депутат"
 R_PRIVATE = "•  Приват"
 R_REPORTS = "•  Доступ к отчётам"
 
+# Права Discord-роли для Младшая Администрация (= набор Модерация+)
+MOD_PLUS_ROLE_PERMISSIONS = discord.Permissions(
+    view_channel=True,
+    send_messages=True,
+    send_messages_in_threads=True,
+    create_public_threads=True,
+    create_private_threads=True,
+    embed_links=True,
+    attach_files=True,
+    add_reactions=True,
+    use_external_emojis=True,
+    use_external_stickers=True,
+    mention_everyone=False,
+    manage_messages=True,
+    read_message_history=True,
+    use_application_commands=True,
+    change_nickname=True,
+    manage_nicknames=True,
+    connect=True,
+    speak=True,
+    stream=True,
+    use_voice_activation=True,
+    priority_speaker=True,
+    mute_members=True,
+    deafen_members=True,
+    move_members=True,
+    moderate_members=True,
+    bypass_slowmode=True,
+)
+
 # Роли выше обычной модерации + сами модераторы — одни и те же войсы
 VOICE_STAFF = [
     R_STAR,
@@ -550,19 +580,26 @@ async def sync_junior_admin_like_mod_plus(
     fixed = 0
     try:
         await junior.edit(
-            permissions=modp.permissions,
+            permissions=MOD_PLUS_ROLE_PERMISSIONS,
             colour=modp.colour,
-            hoist=modp.hoist,
+            hoist=True,
             mentionable=modp.mentionable,
-            reason="Младшая Адм: точная копия прав роли Модерация+",
+            reason="Младшая Адм: права роли (текст/войс/мод)",
         )
-        print(
-            f"  ✓ права роли скопированы с Модерация+ "
-            f"(value={modp.permissions.value})"
-        )
+        print(f"  ✓ права роли Младшая Администрация value={MOD_PLUS_ROLE_PERMISSIONS.value}")
         fixed += 1
     except discord.HTTPException as exc:
         print(f"  ⚠ sync role junior: {exc}")
+
+    try:
+        await modp.edit(
+            permissions=MOD_PLUS_ROLE_PERMISSIONS,
+            reason="Модерация+: тот же набор прав роли",
+        )
+        print("  ✓ права роли Модерация+")
+        fixed += 1
+    except discord.HTTPException as exc:
+        print(f"  ⚠ Модерация+ не обновлена (роль бота ниже): {exc}")
 
     for ch in guild.channels:
         ow_m = ch.overwrites_for(modp)
