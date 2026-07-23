@@ -958,6 +958,35 @@ class TicketControlView(discord.ui.View):
         )
 
 
+async def panel_overwrites(guild: discord.Guild) -> dict[discord.abc.Snowflake, discord.PermissionOverwrite]:
+    """Панель: смотреть и жать кнопки, писать нельзя (бот пишет)."""
+    ows: dict[discord.abc.Snowflake, discord.PermissionOverwrite] = {
+        guild.default_role: discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=False,
+            read_message_history=True,
+        ),
+    }
+    for role in guild.roles:
+        if role.name in STAFF_ROLE_NAMES:
+            ows[role] = discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=False,
+                read_message_history=True,
+            )
+    me = guild.me
+    if me:
+        ows[me] = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            manage_messages=True,
+            embed_links=True,
+            mention_everyone=True,
+        )
+    return ows
+
+
 async def deploy_panel(guild: discord.Guild) -> None:
     panel = discord.utils.get(guild.text_channels, name=PANEL_CHANNEL)
     if panel is None:
@@ -974,6 +1003,11 @@ async def deploy_panel(guild: discord.Guild) -> None:
     me = guild.me
     if me is None:
         return
+
+    await panel.edit(
+        overwrites=await panel_overwrites(guild),
+        reason="Панель: только кнопки, без сообщений",
+    )
 
     async for msg in panel.history(limit=15):
         if msg.author.id == me.id:

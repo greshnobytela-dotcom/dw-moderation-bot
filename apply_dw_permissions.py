@@ -28,6 +28,7 @@ PRESETS: dict[str, dict[str, bool | None]] = {
     },
     "view": {
         "view_channel": True,
+        "send_messages": False,
         "read_message_history": True,
         "connect": True,
         "speak": True,
@@ -35,6 +36,7 @@ PRESETS: dict[str, dict[str, bool | None]] = {
     },
     "view_no_manage": {
         "view_channel": True,
+        "send_messages": False,
         "read_message_history": True,
         "connect": True,
         "speak": True,
@@ -42,6 +44,22 @@ PRESETS: dict[str, dict[str, bool | None]] = {
         "manage_channels": False,
         "manage_messages": False,
         "manage_roles": False,
+    },
+    "panel_click": {
+        "view_channel": True,
+        "send_messages": False,
+        "read_message_history": True,
+        "add_reactions": False,
+        "attach_files": False,
+        "embed_links": False,
+    },
+    "panel_bot": {
+        "view_channel": True,
+        "send_messages": True,
+        "read_message_history": True,
+        "manage_messages": True,
+        "embed_links": True,
+        "mention_everyone": True,
     },
     "manage_category_reports": {
         "view_channel": True,
@@ -149,7 +167,7 @@ _CHANNEL_ADMIN = {
     "@everyone": "deny",
 }
 
-# [ 📚 ] Основное — пишет только админка и выше, остальные только читают
+# [ 📚 ] Основное — пишет только Администрация и выше, остальные только читают
 MAIN_CATEGORY_KEYS = ("основное",)
 _CHANNEL_MAIN = {
     R_STAR: "full",
@@ -163,6 +181,35 @@ _CHANNEL_MAIN = {
     R_MOD: "view_no_manage",
     R_PASS: "view",
     "@everyone": "view",
+}
+
+# Панели (вызовы / отчёты / зарплата) — только смотреть и жать кнопки
+PANEL_CHANNEL_NAMES = {
+    "〈📞〉・панель",
+    "〈📞〉-панель",
+    "〈📋〉・создание",
+    "〈📋〉-создание",
+    "📋・создание",
+    "создание-отчёта",
+    "〈💵〉・зарплата",
+    "〈💰〉・зарплата",
+    "〈💰〉-зарплата",
+    "💰・зарплата",
+    "💵・зарплата",
+    "получение-зарплаты",
+}
+_CHANNEL_PANEL = {
+    R_STAR: "panel_click",
+    R_LEAD: "panel_click",
+    R_HIGH_ADMIN: "panel_click",
+    R_ADMIN: "panel_click",
+    R_JUNIOR_ADMIN: "panel_click",
+    R_HIGH_MOD: "panel_click",
+    R_SS: "panel_click",
+    R_MOD_PLUS: "panel_click",
+    R_MOD: "panel_click",
+    R_PASS: "panel_click",
+    "@everyone": "panel_click",
 }
 
 CHANNEL_RULES: dict[str, dict[str, str]] = {
@@ -222,6 +269,10 @@ def is_main_category_channel(channel: discord.abc.GuildChannel) -> bool:
     if not isinstance(channel, discord.TextChannel):
         return False
     return is_main_category(channel.category.name if channel.category else None)
+
+
+def is_panel_channel(channel: discord.abc.GuildChannel) -> bool:
+    return isinstance(channel, discord.TextChannel) and channel.name in PANEL_CHANNEL_NAMES
 
 REPORT_CATEGORY = "[ 📋 ] Отчёты"
 REPORT_VIEWERS = [R_ADMIN, R_HIGH_ADMIN, R_HIGH_MOD, R_SS, R_REPORTS, R_LEAD, R_STAR]
@@ -297,7 +348,10 @@ async def apply_rules(
         if isinstance(key, discord.Member):
             overwrites[key] = ow(preset)
             continue
-        target = roles.get(key)
+        if isinstance(key, discord.abc.Snowflake) and not isinstance(key, discord.Role):
+            overwrites[key] = ow(preset)
+            continue
+        target = roles.get(key) if isinstance(key, str) else key
         if target is None:
             print(f"    ⚠ роль не найдена: {key}")
             continue
@@ -427,7 +481,7 @@ async def run(guild: discord.Guild) -> None:
 
     applied += await apply_reports(guild, roles)
 
-    print("\n=== Основное (только админка пишет) ===")
+    print("\n=== Основное (только Администрация пишет) ===")
     for cat in guild.categories:
         if not is_main_category(cat.name):
             continue
@@ -439,16 +493,30 @@ async def run(guild: discord.Guild) -> None:
             applied += 1
             await asyncio.sleep(0.35)
 
+    print("\n=== Панели (только кнопки, без сообщений) ===")
+    for ch in guild.text_channels:
+        if not is_panel_channel(ch):
+            continue
+        rules = dict(_CHANNEL_PANEL)
+        me = guild.me
+        if me:
+            rules[me] = "panel_bot"
+        await apply_rules(ch, rules, roles, keep_members=False)
+        applied += 1
+        await asyncio.sleep(0.35)
+
     print("\n=== Доступ персонала ко всем чатам ===")
-    skip_names = set(CHANNEL_RULES.keys())
+    skip_names = set(CHANNEL_RULES.keys()) | PANEL_CHANNEL_NAMES
     for ch in guild.channels:
-        if ch.name in skip_names or is_main_category_channel(ch):
+        if ch.name in skip_names or is_main_category_channel(ch) or is_panel_channel(ch):
             continue
         if ch.type == discord.ChannelType.category and is_main_category(ch.name):
             continue
         if ch.type == discord.ChannelType.category and ch.name in SKIP_CATEGORIES | {LOCKED_VOICE_CATEGORY}:
             continue
         if ch.category and ch.category.name in SKIP_CATEGORIES | {LOCKED_VOICE_CATEGORY}:
+            continue
+        if ch.category and is_main_category(ch.category.name):
             continue
 
         existing = dict(ch.overwrites)
