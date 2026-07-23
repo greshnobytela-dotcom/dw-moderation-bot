@@ -341,6 +341,45 @@ async def migrate_calls_archive(guild: discord.Guild) -> None:
     if renamed:
         print(f"  ✓ вызовы: архив с ником — {renamed}")
 
+    sorted_n = await sort_calls_archive_channels(guild)
+    if sorted_n:
+        print(f"  ✓ вызовы: порядок архива — {sorted_n}")
+
+
+async def sort_calls_archive_channels(guild: discord.Guild) -> int:
+    """Сортировка архива вызовов: новые сверху (по номеру убыв.)."""
+    cat = discord.utils.get(guild.categories, name=CAT_ARCHIVE_CALLS)
+    if cat is None:
+        return 0
+
+    items: list[tuple[int, discord.TextChannel]] = []
+    for ch in cat.text_channels:
+        if ch.name.startswith("🗄️・зп-"):
+            continue
+        m = ARCHIVE_TICKET_RE.match(ch.name)
+        if not m:
+            continue
+        items.append((int(m.group(1)), ch))
+
+    if len(items) < 2:
+        return 0
+
+    desired = [ch for _, ch in sorted(items, key=lambda t: t[0], reverse=True)]
+    current = [ch for ch in cat.text_channels if ch in desired]
+    if current == desired:
+        return 0
+
+    # Newest first: move #N to top, then the rest after previous
+    try:
+        await desired[0].move(beginning=True, category=cat, reason="Архив вызовов: сортировка")
+        for prev, ch in zip(desired, desired[1:]):
+            await ch.move(after=prev, category=cat, reason="Архив вызовов: сортировка")
+            await asyncio.sleep(0.8)
+    except discord.HTTPException as exc:
+        print(f"  ⚠ сортировка архива: {exc}")
+        return 0
+    return len(desired)
+
 
 async def fix_legacy_calls_archive_channels(guild: discord.Guild) -> int:
     """Старые 🗄️・N → 🗄️・N・ник."""
@@ -514,6 +553,10 @@ async def cancel_ticket_channel(
             reason=f"Cancel ticket {ticket_num}",
         )
         await disable_ticket_controls(channel)
+        try:
+            await channel.move(beginning=True, category=archive_cat, reason="Архив: новый сверху")
+        except discord.HTTPException:
+            pass
     except discord.HTTPException as exc:
         print(f"  ⚠ архив вызова #{ticket_num}: {exc}")
 
@@ -578,6 +621,10 @@ async def close_ticket_channel(
             reason=f"Archive ticket {ticket_num}",
         )
         await disable_ticket_controls(channel)
+        try:
+            await channel.move(beginning=True, category=archive_cat, reason="Архив: новый сверху")
+        except discord.HTTPException:
+            pass
     except discord.HTTPException as exc:
         print(f"  ⚠ архив вызова #{ticket_num}: {exc}")
 
