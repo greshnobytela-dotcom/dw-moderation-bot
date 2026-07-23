@@ -530,7 +530,55 @@ async def run(guild: discord.Guild) -> None:
         applied += 1
         await asyncio.sleep(0.25)
 
+    print("\n=== Младшая Администрация = Модерация+ ===")
+    applied += await sync_junior_admin_like_mod_plus(guild, roles)
+
     print(f"\n✅ Обновлено: {applied}")
+
+
+async def sync_junior_admin_like_mod_plus(
+    guild: discord.Guild,
+    roles: dict[str, discord.Role],
+) -> int:
+    """Канальные права Младшей Администрации всегда = Модерация+."""
+    modp = roles.get(R_MOD_PLUS)
+    junior = roles.get(R_JUNIOR_ADMIN)
+    if modp is None or junior is None:
+        print("  ⚠ нет роли Модерация+ или Младшая Администрация")
+        return 0
+
+    try:
+        await junior.edit(
+            permissions=modp.permissions,
+            colour=modp.colour,
+            hoist=modp.hoist,
+            mentionable=modp.mentionable,
+            reason="Младшая Адм: права Discord как у Модерация+",
+        )
+    except discord.HTTPException as exc:
+        print(f"  ⚠ sync role: {exc}")
+
+    fixed = 0
+    for ch in guild.channels:
+        ow_m = ch.overwrites_for(modp)
+        has_mod = any(v is not None for _, v in ow_m)
+        ow_j = ch.overwrites_for(junior)
+        has_jr = any(v is not None for _, v in ow_j)
+        if not has_mod:
+            if has_jr:
+                await ch.set_permissions(junior, overwrite=None, reason="Младшая Адм = Модерация+")
+                fixed += 1
+                await asyncio.sleep(0.2)
+            continue
+        m_pairs = sorted((k, v) for k, v in ow_m if v is not None)
+        j_pairs = sorted((k, v) for k, v in ow_j if v is not None)
+        if m_pairs == j_pairs:
+            continue
+        await ch.set_permissions(junior, overwrite=ow_m, reason="Младшая Адм = Модерация+")
+        print(f"  ✓ sync {ch.name}")
+        fixed += 1
+        await asyncio.sleep(0.25)
+    return fixed
 
 
 async def main() -> None:

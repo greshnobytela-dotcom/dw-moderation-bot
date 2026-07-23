@@ -62,6 +62,7 @@ def ow(**kwargs) -> discord.PermissionOverwrite:
 
 async def setup_permissions(guild: discord.Guild, roles: dict[str, discord.Role]) -> None:
     staff_roles = [R_MOD, R_MOD_PLUS, R_HIGH_MOD, R_SS, R_ADMIN, R_HIGH_ADMIN]
+    # note: Младшая Администрация = как Модерация+ (см. apply_dw_permissions)
     cat = discord.utils.get(guild.categories, name=CAT_EMERGENCY)
     if cat:
         ows = {guild.default_role: ow(view_channel=True, send_messages=False)}
