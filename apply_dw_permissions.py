@@ -90,6 +90,7 @@ R_STAR = "⭐"
 R_LEAD = "• Руководство"
 R_HIGH_ADMIN = "• Высшая Администрация"
 R_ADMIN = "• Администрация"
+R_JUNIOR_ADMIN = "• Младшая Администрация"
 R_HIGH_MOD = "• Высшая Модерация"
 R_SS = "• Отдел SS"
 R_MOD_PLUS = "• Модерация+"
@@ -105,6 +106,7 @@ VOICE_STAFF = [
     R_LEAD,
     R_HIGH_ADMIN,
     R_ADMIN,
+    R_JUNIOR_ADMIN,
     R_HIGH_MOD,
     R_SS,
     R_MOD_PLUS,
@@ -154,6 +156,7 @@ _CHANNEL_MAIN = {
     R_LEAD: "full",
     R_HIGH_ADMIN: "full",
     R_ADMIN: "full",
+    R_JUNIOR_ADMIN: "view_no_manage",
     R_HIGH_MOD: "view_no_manage",
     R_SS: "view_no_manage",
     R_MOD_PLUS: "view_no_manage",
@@ -198,6 +201,7 @@ CHANNEL_RULES: dict[str, dict[str, str]] = {
         R_STAR: "report_view",
         R_HIGH_ADMIN: "report_view",
         R_ADMIN: "report_view",
+        R_JUNIOR_ADMIN: "report_view",
         R_HIGH_MOD: "report_view",
         R_SS: "report_view",
         R_MOD_PLUS: "report_view",
@@ -352,7 +356,7 @@ async def apply_report_channel(
         rules[role_name] = "report_view"
 
     if channel.name == REPORT_ALL_MODS:
-        for role_name in [R_MOD, R_MOD_PLUS, R_HIGH_MOD, R_SS, R_REPORTS]:
+        for role_name in [R_MOD, R_MOD_PLUS, R_JUNIOR_ADMIN, R_HIGH_MOD, R_SS, R_REPORTS]:
             rules[role_name] = "report_post"
     else:
         has_member = any(not isinstance(t, discord.Role) for t in channel.overwrites)

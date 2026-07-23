@@ -44,6 +44,7 @@ CAT_ARCHIVE_LEGACY = "[ 📦 ] Архив"
 
 R_HIGH_ADMIN = "• Высшая Администрация"
 R_ADMIN = "• Администрация"
+R_JUNIOR_ADMIN = "• Младшая Администрация"
 R_LEAD = "• Руководство"
 R_STAR = "⭐"
 R_HIGH_MOD = "• Высшая Модерация"
@@ -56,6 +57,7 @@ STAFF_ROLES = {
     R_MOD_PLUS,
     R_HIGH_MOD,
     R_SS,
+    R_JUNIOR_ADMIN,
     R_ADMIN,
     R_HIGH_ADMIN,
     R_LEAD,

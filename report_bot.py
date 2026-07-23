@@ -26,6 +26,7 @@ REPORT_CHANNEL_RE = re.compile(r"^📝・(.+)$")
 
 R_HIGH_ADMIN = "• Высшая Администрация"
 R_ADMIN = "• Администрация"
+R_JUNIOR_ADMIN = "• Младшая Администрация"
 R_HIGH_MOD = "• Высшая Модерация"
 R_SS = "• Отдел SS"
 R_REPORTS = "•  Доступ к отчётам"
@@ -34,7 +35,7 @@ R_STAR = "⭐"
 R_MOD = "• Модерация"
 R_MOD_PLUS = "• Модерация+"
 
-REPORT_MOD_ROLES = (R_MOD, R_MOD_PLUS, R_HIGH_MOD)
+REPORT_MOD_ROLES = (R_MOD, R_MOD_PLUS, R_HIGH_MOD, R_JUNIOR_ADMIN)
 
 REPORT_VIEWERS = [R_ADMIN, R_HIGH_ADMIN, R_HIGH_MOD, R_SS, R_REPORTS, R_LEAD, R_STAR]
 REPORT_ADMIN_ROLES = {R_ADMIN, R_HIGH_ADMIN, R_LEAD, R_STAR}
@@ -211,6 +212,11 @@ async def find_moderators_by_nick(guild: discord.Guild, query: str) -> list[disc
     matches: dict[int, discord.Member] = {}
 
     for member in await find_moderators_by_report_channels(guild, query):
+        matches[member.id] = member
+    if matches:
+        return list(matches.values())
+
+    for member in await find_moderators_in_voice(guild, query):
         matches[member.id] = member
     if matches:
         return list(matches.values())
@@ -547,7 +553,7 @@ class ReportNickModal(discord.ui.Modal):
 
         if self.action in ("create", "refresh") and not is_report_moderator(member):
             await interaction.followup.send(
-                f"⚠️ {label} — нет роли **Модерация** / **Модерация+** / **Высшая Модерация**.",
+                f"⚠️ {label} — нет роли **Модерация** / **Модерация+** / **Младшая Администрация** / **Высшая Модерация**.",
                 ephemeral=True,
             )
             return
@@ -779,7 +785,7 @@ def register_report_commands(tree: app_commands.CommandTree) -> None:
 
         if not is_report_moderator(модератор):
             await interaction.response.send_message(
-                "⚠️ Нужна роль **Модерация**, **Модерация+** или **Высшая Модерация**.",
+                "⚠️ Нужна роль **Модерация**, **Модерация+**, **Младшая Администрация** или **Высшая Модерация**.",
                 ephemeral=True,
             )
             return
